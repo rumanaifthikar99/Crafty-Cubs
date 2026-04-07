@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit, X, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { fmt, fmtDate, uid, today, EXP_CATS, getCat } from '../lib/utils';
+import { fmt, fmtDate, uid, today, EXP_CATS } from '../lib/utils';
 
 function EventModal({ event, invoices, onSave, onClose }) {
   const isNew = !event?.id;

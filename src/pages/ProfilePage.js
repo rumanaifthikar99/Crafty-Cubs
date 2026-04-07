@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Save, LogOut, Lock, User, ArrowLeft } from 'lucide-react';
+import { Camera, Save, LogOut, Lock, ArrowLeft } from 'lucide-react';
 import { supabase, getUserProfile } from '../lib/supabase';
 
 export default function ProfilePage({ user, onBack, onLogout }) {
