@@ -49,8 +49,10 @@ export default function App() {
   const [dataLoading, setDataLoading]     = useState(true);
   const loadedRef = useRef(false);
 
+  // ── AUTH ──────────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       if (session?.user && ALLOWED_EMAILS.includes(session.user.email)) {
@@ -61,6 +63,7 @@ export default function App() {
         setAuthState('out');
       }
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       if (session?.user && ALLOWED_EMAILS.includes(session.user.email)) {
@@ -76,9 +79,11 @@ export default function App() {
         loadedRef.current = false;
       }
     });
+
     return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
+  // ── LOAD ALL DATA ─────────────────────────────────────────────────
   const loadAll = useCallback(async (force = false) => {
     if (authState !== 'in') return;
     if (loadedRef.current && !force) return;
@@ -91,60 +96,120 @@ export default function App() {
         supabase.from('events').select('*').order('date', { ascending: false }),
         supabase.from('drafts').select('*').order('saved_at', { ascending: false }),
       ]);
+
+      // Settings — merge with defaults, no setup wizard
       const s = { ...DEFAULT_SETTINGS, ...(sRes.data?.data || {}) };
       setSettings(s);
+
       setInvoices(iRes.data || []);
       setCustomers(cRes.data || []);
       setEvents(eRes.data || []);
+
+      // Drafts — filter out expired (>30 days)
       const now = Date.now();
       const validDrafts = (dRes.data || []).filter(d => {
         const age = now - new Date(d.saved_at).getTime();
         return age < 30 * 24 * 60 * 60 * 1000;
       });
       setDrafts(validDrafts);
+
+      // Clean expired drafts silently
       const expiredIds = (dRes.data || [])
-        .filter(d => (Date.now() - new Date(d.saved_at).getTime()) >= 30 * 24 * 60 * 60 * 1000)
+        .filter(d => { const age = now - new Date(d.saved_at).getTime(); return age >= 30 * 24 * 60 * 60 * 1000; })
         .map(d => d.id);
-      if (expiredIds.length) supabase.from('drafts').delete().in('id', expiredIds).then(() => {});
+      if (expiredIds.length) {
+        supabase.from('drafts').delete().in('id', expiredIds).then(() => {});
+      }
+
       loadedRef.current = true;
-    } catch (e) { console.error('Load error:', e); }
+    } catch (e) {
+      console.error('Load error:', e);
+    }
     setDataLoading(false);
   }, [authState]);
 
-  useEffect(() => { if (authState === 'in') loadAll(); }, [authState, loadAll]);
+  useEffect(() => {
+    if (authState === 'in') loadAll();
+  }, [authState, loadAll]);
 
-  function goTab(t) { setTab(t); setView('list'); setActiveInvoice(null); }
-
-  function goBack() {
-    if (view === 'editor') setView(activeInvoice && !activeInvoice._isNew ? 'preview' : 'list');
-    else setView('list');
+  // ── NAVIGATION ────────────────────────────────────────────────────
+  function goTab(t) {
+    setTab(t);
+    setView('list');
     setActiveInvoice(null);
   }
 
+  function goBack() {
+    if (view === 'editor') {
+      setView(activeInvoice && !activeInvoice._isNew ? 'preview' : 'list');
+    } else {
+      setView('list');
+    }
+    setActiveInvoice(null);
+  }
+
+  // ── INVOICE ACTIONS ───────────────────────────────────────────────
   function newInvoice() {
-    setActiveInvoice({ _isNew: true, invoice_number: `${settings.prefix}-${settings.nextNum}` });
+    const nextNumber = `${settings.prefix}-${settings.nextNum}`;
+    setActiveInvoice({ _isNew: true, invoice_number: nextNumber });
     setTab('invoices');
     setView('editor');
   }
 
-  function openInvoice(inv) { setActiveInvoice(inv); setTab('invoices'); setView('preview'); }
-  function editInvoice(inv) { setActiveInvoice(inv || { _isNew: true, invoice_number: `${settings.prefix}-${settings.nextNum}` }); setView('editor'); }
-  function savedInvoice(inv) { setActiveInvoice(inv); setView('preview'); loadAll(true); }
-  function handleNew() { if (tab === 'invoices') newInvoice(); }
-  function handleSaveSettings(s) { setSettings(s); setView('list'); }
+  function openInvoice(inv) {
+    setActiveInvoice(inv);
+    setTab('invoices');
+    setView('preview');
+  }
 
-  if (authState === 'loading') return <Loader message="Starting up…" />;
-  if (authState === 'out') return <LoginPage />;
-  if (dataLoading && !invoices.length) return <Loader message="Loading your data…" />;
+  function editInvoice(inv) {
+    setActiveInvoice(inv || { _isNew: true, invoice_number: `${settings.prefix}-${settings.nextNum}` });
+    setView('editor');
+  }
+
+  function savedInvoice(inv) {
+    setActiveInvoice(inv);
+    setView('preview');
+    loadAll(true);
+  }
+
+  function handleNew() {
+    if (tab === 'invoices') newInvoice();
+    else if (tab === 'customers') setTab('customers');
+    else if (tab === 'expenses') setTab('expenses');
+  }
+
+  function handleSaveSettings(s) {
+    setSettings(s);
+    setView('list');
+  }
+
+  // ── RENDER ────────────────────────────────────────────────────────
+  if (authState === 'loading')          return <Loader message="Starting up…" />;
+  if (authState === 'out')              return <LoginPage />;
+  if (dataLoading && !invoices.length)  return <Loader message="Loading your data…" />;
 
   const isFullscreen = ['editor', 'preview', 'settings', 'profile'].includes(view);
 
   return (
     <>
-      {!isFullscreen && <TopNav tab={tab} onTab={goTab} onProfile={() => setView('profile')} user={user} onNew={handleNew} />}
+      {!isFullscreen && (
+        <TopNav
+          tab={tab}
+          onTab={goTab}
+          onProfile={() => setView('profile')}
+          user={user}
+          onNew={handleNew}
+        />
+      )}
 
-      {view === 'profile' && <ProfilePage user={user} onBack={goBack} onLogout={() => {}} />}
-      {view === 'settings' && <SettingsPage settings={settings} onSave={handleSaveSettings} onBack={goBack} />}
+      {/* Fullscreen pages */}
+      {view === 'profile' && (
+        <ProfilePage user={user} onBack={goBack} onLogout={() => {}} />
+      )}
+      {view === 'settings' && (
+        <SettingsPage settings={settings} onSave={handleSaveSettings} onBack={goBack} />
+      )}
       {view === 'editor' && (
         <InvoiceEditor
           invoice={activeInvoice?._isNew ? null : activeInvoice}
@@ -156,21 +221,63 @@ export default function App() {
         />
       )}
       {view === 'preview' && activeInvoice && (
-        <InvoicePreview invoice={activeInvoice} settings={settings} onBack={goBack} onEdit={() => editInvoice(activeInvoice)} />
+        <InvoicePreview
+          invoice={activeInvoice}
+          settings={settings}
+          onBack={goBack}
+          onEdit={() => editInvoice(activeInvoice)}
+        />
       )}
 
-      {!isFullscreen && tab === 'dashboard' && <DashboardPage user={user} invoices={invoices} customers={customers} events={events} onOpenInvoice={openInvoice} onTab={goTab} onNew={handleNew} />}
-      {!isFullscreen && tab === 'invoices' && <InvoicesPage invoices={invoices} drafts={drafts} onOpen={openInvoice} onEdit={editInvoice} onRefresh={() => loadAll(true)} />}
-      {!isFullscreen && tab === 'customers' && <CustomersPage customers={customers} invoices={invoices} onRefresh={() => loadAll(true)} />}
-      {!isFullscreen && tab === 'expenses' && <ExpensesPage events={events} invoices={invoices} onRefresh={() => loadAll(true)} />}
-      {!isFullscreen && tab === 'finance' && <FinancePage user={user} />}
+      {/* Tab pages */}
+      {!isFullscreen && tab === 'dashboard' && (
+        <DashboardPage
+          user={user}
+          invoices={invoices}
+          customers={customers}
+          events={events}
+          onOpenInvoice={openInvoice}
+          onTab={goTab}
+          onNew={handleNew}
+        />
+      )}
+      {!isFullscreen && tab === 'invoices' && (
+        <InvoicesPage
+          invoices={invoices}
+          drafts={drafts}
+          onOpen={openInvoice}
+          onEdit={editInvoice}
+          onRefresh={() => loadAll(true)}
+        />
+      )}
+      {!isFullscreen && tab === 'customers' && (
+        <CustomersPage
+          customers={customers}
+          invoices={invoices}
+          onRefresh={() => loadAll(true)}
+        />
+      )}
+      {!isFullscreen && tab === 'expenses' && (
+        <ExpensesPage
+          events={events}
+          invoices={invoices}
+          onRefresh={() => loadAll(true)}
+        />
+      )}
+      {!isFullscreen && tab === 'finance' && (
+        <FinancePage user={user} />
+      )}
 
+      {/* Settings gear button */}
       {!isFullscreen && (
-        <button onClick={() => setView('settings')} className="no-print" title="Settings"
-          style={{ position: 'fixed', bottom: 'calc(var(--bnav) + 12px)', left: 16, width: 36, height: 36, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, boxShadow: 'var(--sh2)', zIndex: 200 }}>
-          ⚙️
-        </button>
+        <button
+          onClick={() => setView('settings')}
+          className="no-print"
+          title="Settings"
+          style={{ position: 'fixed', bottom: 'calc(var(--bnav) + 12px)', left: 16, width: 36, height: 36, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, boxShadow: 'var(--sh2)', zIndex: 200 }}
+        >⚙️</button>
       )}
+
       {!isFullscreen && <BottomNav tab={tab} onTab={goTab} />}
     </>
   );
