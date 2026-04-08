@@ -16,7 +16,7 @@ import './styles/app.css';
 const DEFAULT_SETTINGS = {
   coName: 'Crafty Cubs',
   coAddr: '32, Lorenz Road, Colombo 04',
-  coPhone: '+94710332555',
+  coPhone: '+94 77 763 4750',
   coEmail: '',
   prefix: 'CC',
   nextNum: 351,

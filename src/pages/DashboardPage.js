@@ -13,12 +13,12 @@ export default function DashboardPage({ user, invoices, customers, events, onOpe
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
-  const totalRev = (invoices || []).reduce((s, i) => s + (i.total || 0), 0);
-  const monthRev = thisMonth.reduce((s, i) => s + (i.total || 0), 0);
-  const totalExp = (events || []).reduce((s, e) => s + (e.total_expenses || 0), 0);
+  const totalRev  = (invoices || []).reduce((s, i) => s + (i.total || 0), 0);
+  const monthRev  = thisMonth.reduce((s, i) => s + (i.total || 0), 0);
+  const totalExp  = (events || []).reduce((s, e) => s + (e.total_expenses || 0), 0);
   const netProfit = totalRev - totalExp;
-  const unpaid = (invoices || []).filter(i => i.status !== 'paid');
-  const recent = (invoices || []).slice(0, 6);
+  const unpaid    = (invoices || []).filter(i => i.status !== 'paid');
+  const recent    = (invoices || []).slice(0, 6);
 
   return (
     <div className="page">
@@ -27,9 +27,7 @@ export default function DashboardPage({ user, invoices, customers, events, onOpe
         <div style={{ marginBottom: 20 }} className="fu">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
             <div className="avatar" style={{ background: profile.bg, color: profile.color, width: 44, height: 44, fontSize: 18 }}>
-              {(user?.user_metadata?.avatar_url)
-                ? <img src={user.user_metadata.avatar_url} alt="" />
-                : profile.initial}
+              {meta.avatar_url ? <img src={meta.avatar_url} alt="" /> : profile.initial}
             </div>
             <div>
               <div style={{ fontFamily: 'var(--fn)', fontWeight: 900, fontSize: 20, color: 'var(--navy)', lineHeight: 1 }}>
@@ -121,19 +119,50 @@ export default function DashboardPage({ user, invoices, customers, events, onOpe
             })}
         </div>
 
-        {/* Quick actions */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }} className="fu" style2={{ animationDelay: '.16s' }}>
-          {[
-            { emoji: '📄', label: 'New Invoice', action: () => onNew('invoices') },
-            { emoji: '🎪', label: 'New Event', action: () => onNew('expenses') },
-            { emoji: '👥', label: 'Clients', action: () => onTab('customers') },
-            { emoji: '📊', label: 'Finance', action: () => onTab('finance') },
-          ].map(({ emoji, label, action }) => (
-            <button key={label} onClick={action} className="btn btn-ghost" style={{ justifyContent: 'center', borderRadius: 'var(--rl)', padding: '16px 12px', flexDirection: 'column', height: 76, gap: 6, fontSize: 13.5 }}>
-              <span style={{ fontSize: 22 }}>{emoji}</span>
-              {label}
+        {/* Quick actions — all buttons fully wired up */}
+        <div className="fu" style={{ animationDelay: '.16s' }}>
+          <div style={{ fontFamily: 'var(--fn)', fontWeight: 700, fontSize: 13, color: 'var(--t2)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>Quick Actions</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+            <button
+              onClick={() => { onTab('invoices'); onNew('invoices'); }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 'var(--rl)', padding: '20px 12px', cursor: 'pointer', transition: 'all .15s', boxShadow: 'var(--sh1)' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--teal)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <span style={{ fontSize: 28 }}>📄</span>
+              <span style={{ fontFamily: 'var(--fn)', fontWeight: 700, fontSize: 13.5, color: 'var(--navy)' }}>New Invoice</span>
             </button>
-          ))}
+
+            <button
+              onClick={() => onTab('expenses')}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 'var(--rl)', padding: '20px 12px', cursor: 'pointer', transition: 'all .15s', boxShadow: 'var(--sh1)' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--coral)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <span style={{ fontSize: 28 }}>🎪</span>
+              <span style={{ fontFamily: 'var(--fn)', fontWeight: 700, fontSize: 13.5, color: 'var(--navy)' }}>New Event</span>
+            </button>
+
+            <button
+              onClick={() => onTab('customers')}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 'var(--rl)', padding: '20px 12px', cursor: 'pointer', transition: 'all .15s', boxShadow: 'var(--sh1)' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--purple)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <span style={{ fontSize: 28 }}>👥</span>
+              <span style={{ fontFamily: 'var(--fn)', fontWeight: 700, fontSize: 13.5, color: 'var(--navy)' }}>Clients</span>
+            </button>
+
+            <button
+              onClick={() => onTab('finance')}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 'var(--rl)', padding: '20px 12px', cursor: 'pointer', transition: 'all .15s', boxShadow: 'var(--sh1)' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--green)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <span style={{ fontSize: 28 }}>📊</span>
+              <span style={{ fontFamily: 'var(--fn)', fontWeight: 700, fontSize: 13.5, color: 'var(--navy)' }}>Finance</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
