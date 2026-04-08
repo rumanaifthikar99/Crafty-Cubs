@@ -10,6 +10,9 @@
     "html2pdf.js": "^0.10.1",
     "lucide-react": "^0.383.0"
   },
+  "devDependencies": {
+    "eslint-plugin-react-hooks": "^4.6.0"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build"
