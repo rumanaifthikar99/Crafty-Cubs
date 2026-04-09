@@ -1,0 +1,14 @@
+[build]
+  command = "CI=false DISABLE_ESLINT_PLUGIN=true npm run build"
+  publish = "build"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "18"
+  REACT_APP_SUPABASE_URL = "https://khfhguigpjiybaggglcv.supabase.co"
+  REACT_APP_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZmhndWlncGppeWJhZ2dnbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTk1OTIsImV4cCI6MjA5MDk3NTU5Mn0.20N7zzuphvc2jEjRUnRPZruvqeEWfL9UqIwxeLno4sg"
