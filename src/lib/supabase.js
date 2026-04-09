@@ -1,12 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-import { createClient } from '@supabase/supabase-js';
-
-export const supabase = createClient(
-  'https://khfhguigpjiybaggglcv.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZmhndWlncGppeWJhZ2dnbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTk1OTIsImV4cCI6MjA5MDk3NTU5Mn0.20N7zzuphvc2jEjRUnRPZruvqeEWfL9UqIwxeLno4sg'
-);
-
 export const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || 'https://khfhguigpjiybaggglcv.supabase.co',
   process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZmhndWlncGppeWJhZ2dnbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTk1OTIsImV4cCI6MjA5MDk3NTU5Mn0.20N7zzuphvc2jEjRUnRPZruvqeEWfL9UqIwxeLno4sg'
