@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit, X, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { fmt, fmtDate, uid, today, EXP_CATS, getCat } from '../lib/utils';
+import { fmt, fmtDate, uid, today, EXP_CATS } from '../lib/utils';
 
 function EventModal({ event, invoices, onSave, onClose }) {
   const isNew = !event?.id;
   const [d, setD] = useState(event || { name:'', date:today(), notes:'', linked_invoice_id:'', items:[{id:uid(),description:'',category:'supplies',amount:0}] });
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
   const set = (k,v) => setD(x=>({...x,[k]:v}));
 
   const addItem = () => setD(x=>({...x,items:[...x.items,{id:uid(),description:'',category:'supplies',amount:0}]}));
@@ -18,15 +19,22 @@ function EventModal({ event, invoices, onSave, onClose }) {
   const profit = linkedInv ? (linkedInv.total||0) - totalExp : null;
 
   async function save() {
-    if (!d.name?.trim()) return;
+    if (!d.name?.trim()) { setErr('Event name is required'); return; }
     setSaving(true);
-    const ev = {...d, total_expenses: totalExp};
-    if (isNew) {
-      await supabase.from('events').insert([{...ev, id:uid()}]);
-    } else {
-      await supabase.from('events').update(ev).eq('id', ev.id);
+    setErr('');
+    try {
+      const ev = { ...d, total_expenses: totalExp };
+      if (isNew) {
+        const { error } = await supabase.from('events').insert([{ ...ev, id: uid() }]);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('events').update(ev).eq('id', ev.id);
+        if (error) throw error;
+      }
+      onSave();
+    } catch(e) {
+      setErr('Could not save: ' + e.message);
     }
-    onSave();
     setSaving(false);
   }
 
@@ -38,6 +46,8 @@ function EventModal({ event, invoices, onSave, onClose }) {
           <h2 className="modal-title" style={{marginBottom:0}}>{isNew?'New Event':'Edit Event'}</h2>
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}><X size={15}/></button>
         </div>
+
+        {err && <div style={{background:'var(--red-l)',color:'var(--red)',borderRadius:'var(--r)',padding:'10px 14px',fontSize:13,marginBottom:14}}>⚠ {err}</div>}
 
         <div className="g2" style={{marginBottom:14}}>
           <div className="field span2"><label className="lbl">Event Name *</label><input className="inp" value={d.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Birthday party — Mrs. Christa"/></div>
@@ -52,7 +62,6 @@ function EventModal({ event, invoices, onSave, onClose }) {
           <div className="field span2"><label className="lbl">Notes</label><textarea className="inp" rows={2} value={d.notes||''} onChange={e=>set('notes',e.target.value)} style={{resize:'vertical'}}/></div>
         </div>
 
-        {/* Expense items */}
         <div style={{marginBottom:14}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 140px 110px 32px',gap:8,marginBottom:6}}>
             <span className="lbl">Description</span><span className="lbl">Category</span><span className="lbl">Amount (LKR)</span><span/>
@@ -70,7 +79,6 @@ function EventModal({ event, invoices, onSave, onClose }) {
           <button className="btn btn-ghost btn-sm" style={{color:'var(--coral)',borderStyle:'dashed',width:'100%',justifyContent:'center',marginTop:4}} onClick={addItem}><Plus size={12}/> Add expense</button>
         </div>
 
-        {/* Profit preview — admin only */}
         <div style={{background:'var(--navy-l)',borderRadius:'var(--rl)',padding:'12px 14px',marginBottom:16}}>
           <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:8}}>
             📊 Profit / Loss <span style={{background:'var(--navy)',color:'#fff',padding:'1px 6px',borderRadius:4,fontSize:9}}>ADMIN ONLY</span>
@@ -112,7 +120,13 @@ export default function ExpensesPage({ events, invoices, onRefresh }) {
 
   async function del(id) {
     if (!window.confirm('Delete this event?')) return;
-    await supabase.from('events').delete().eq('id', id);
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) { alert('Could not delete: ' + error.message); return; }
+    onRefresh();
+  }
+
+  function handleSave() {
+    setModal(null);
     onRefresh();
   }
 
@@ -132,12 +146,12 @@ export default function ExpensesPage({ events, invoices, onRefresh }) {
             <span className="card-title">Events & Expenses</span>
           </div>
           {(events||[]).length===0
-            ? <div className="empty"><div className="empty-ico">🎪</div><div className="empty-txt">No events yet</div><div className="empty-sub">Tap + to add your first event</div></div>
-            : (events||[]).map((ev,i) => {
+            ? <div className="empty"><div className="empty-ico">🎪</div><div className="empty-txt">No events yet — tap + to add</div></div>
+            : (events||[]).map((ev) => {
               const inv = ev.linked_invoice_id?(invoices||[]).find(i=>i.id===ev.linked_invoice_id):null;
               const profit = inv ? (inv.total||0)-(ev.total_expenses||0) : null;
               return (
-                <div key={ev.id} className="list-row clickable" style={{flexWrap:'wrap',gap:'6px 10px',animationDelay:`${i*.03}s`}} onClick={()=>setModal(ev)}>
+                <div key={ev.id} className="list-row clickable" style={{flexWrap:'wrap',gap:'6px 10px'}} onClick={()=>setModal(ev)}>
                   <div style={{flex:'1 1 160px',minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:14,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.name}</div>
                     <div style={{fontSize:12,color:'var(--t3)',marginTop:2}}>{fmtDate(ev.date)}{inv?` · 🔗 ${inv.invoice_number}`:''}</div>
@@ -156,13 +170,15 @@ export default function ExpensesPage({ events, invoices, onRefresh }) {
         </div>
       </div>
 
-      <button className="fab fab-coral no-print" onClick={()=>setModal('new')} title="New Event"><span style={{fontSize:24,lineHeight:1}}>+</span></button>
+      <button className="fab fab-coral no-print" onClick={()=>setModal('new')} title="New Event">
+        <span style={{fontSize:24,lineHeight:1}}>+</span>
+      </button>
 
       {modal && (
         <EventModal
           event={modal==='new'?null:modal}
           invoices={invoices}
-          onSave={()=>{setModal(null);onRefresh();}}
+          onSave={handleSave}
           onClose={()=>setModal(null)}
         />
       )}

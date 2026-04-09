@@ -7,6 +7,7 @@ function CustomerModal({ customer, invoices, onSave, onClose }) {
   const isNew = !customer?.id;
   const [d, setD] = useState(customer || { name:'', phone:'', email:'', address:'', notes:'', custom_fields:[] });
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
   const set = (k,v) => setD(x => ({...x,[k]:v}));
   const addCF = () => setD(x => ({...x, custom_fields:[...(x.custom_fields||[]),{id:uid(),label:'',value:''}]}));
   const setCF = (id,k,v) => setD(x => ({...x, custom_fields:(x.custom_fields||[]).map(f=>f.id===id?{...f,[k]:v}:f)}));
@@ -16,14 +17,22 @@ function CustomerModal({ customer, invoices, onSave, onClose }) {
   const totalSpend = custInvoices.reduce((s,i)=>s+(i.total||0),0);
 
   async function save() {
-    if (!d.name?.trim()) return;
+    if (!d.name?.trim()) { setErr('Name is required'); return; }
     setSaving(true);
-    if (isNew) {
-      const { data: row } = await supabase.from('customers').insert([{...d, id:uid()}]).select().single();
-      onSave(row);
-    } else {
-      await supabase.from('customers').update(d).eq('id', d.id);
-      onSave(d);
+    setErr('');
+    try {
+      if (isNew) {
+        const newId = uid();
+        const { error } = await supabase.from('customers').insert([{ ...d, id: newId }]);
+        if (error) throw error;
+        onSave({ ...d, id: newId });
+      } else {
+        const { error } = await supabase.from('customers').update(d).eq('id', d.id);
+        if (error) throw error;
+        onSave(d);
+      }
+    } catch(e) {
+      setErr('Could not save: ' + e.message);
     }
     setSaving(false);
   }
@@ -31,11 +40,13 @@ function CustomerModal({ customer, invoices, onSave, onClose }) {
   return (
     <div className="overlay fi" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
-        <div className="modal-drag" />
+        <div className="modal-drag"/>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <h2 className="modal-title" style={{marginBottom:0}}>{isNew?'New Client':'Edit Client'}</h2>
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}><X size={15}/></button>
         </div>
+
+        {err && <div style={{background:'var(--red-l)',color:'var(--red)',borderRadius:'var(--r)',padding:'10px 14px',fontSize:13,marginBottom:14}}>⚠ {err}</div>}
 
         <div className="g2">
           <div className="field span2"><label className="lbl">Name *</label><input className="inp" value={d.name} onChange={e=>set('name',e.target.value)} placeholder="Full name"/></div>
@@ -95,7 +106,13 @@ export default function CustomersPage({ customers, invoices, onRefresh }) {
 
   async function del(id) {
     if (!window.confirm('Delete this client?')) return;
-    await supabase.from('customers').delete().eq('id', id);
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) { alert('Could not delete: ' + error.message); return; }
+    onRefresh();
+  }
+
+  function handleSave() {
+    setModal(null);
     onRefresh();
   }
 
@@ -113,13 +130,13 @@ export default function CustomersPage({ customers, invoices, onRefresh }) {
             <div className="search-wrap"><Search size={14}/><input className="search-inp" placeholder="Search clients…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
           </div>
           {filtered.length===0
-            ? <div className="empty"><div className="empty-ico">👥</div><div className="empty-txt">{(customers||[]).length===0?'No clients yet':'No results'}</div></div>
+            ? <div className="empty"><div className="empty-ico">👥</div><div className="empty-txt">{(customers||[]).length===0?'No clients yet — tap + to add':'No results'}</div></div>
             : filtered.map((c,i) => {
               const ci = (invoices||[]).filter(inv=>inv.customer_id===c.id||inv.customer_name===c.name);
               const ts = ci.reduce((s,inv)=>s+(inv.total||0),0);
               return (
-                <div key={c.id} className="list-row clickable" style={{gap:12,animationDelay:`${i*.03}s`}} onClick={()=>setModal(c)}>
-                  <div className="avatar" style={{background:'var(--teal-l)',color:'var(--teal)',width:38,height:38,fontSize:15}}>
+                <div key={c.id} className="list-row clickable" style={{gap:12}} onClick={()=>setModal(c)}>
+                  <div className="avatar" style={{background:'var(--teal-l)',color:'var(--teal)',width:38,height:38,fontSize:15,flexShrink:0}}>
                     {(c.name||'?')[0].toUpperCase()}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
@@ -140,13 +157,15 @@ export default function CustomersPage({ customers, invoices, onRefresh }) {
         </div>
       </div>
 
-      <button className="fab" onClick={()=>setModal('new')} title="New Client"><span style={{fontSize:24,lineHeight:1}}>+</span></button>
+      <button className="fab" onClick={()=>setModal('new')} title="New Client">
+        <span style={{fontSize:24,lineHeight:1}}>+</span>
+      </button>
 
       {modal && (
         <CustomerModal
           customer={modal==='new'?null:modal}
           invoices={invoices}
-          onSave={()=>{setModal(null);onRefresh();}}
+          onSave={handleSave}
           onClose={()=>setModal(null)}
         />
       )}
